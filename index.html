@@ -2,26 +2,32 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Gantt Master Pro: Persistent ID-Engine</title>
+    <title>Gantt Master Pro - Final Master</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; overflow: hidden; display: flex; flex-direction: column; }
-        .controls { padding: 12px 20px; background: #2c3e50; display: flex; justify-content: center; gap: 12px; color: white; align-items: center; z-index: 1000; position: relative; }
+        .controls { padding: 12px 20px; background: #2c3e50; display: flex; justify-content: center; gap: 10px; color: white; align-items: center; z-index: 1000; position: relative; }
         #view-container { position: relative; width: 100vw; height: calc(100vh - 65px); overflow-y: auto; background: #fff; }
         canvas { display: none; position: absolute; top: 0; left: 0; cursor: crosshair; }
         canvas.active { display: block; }
-        .btn { padding: 8px 16px; cursor: pointer; background: #3498db; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        .btn { padding: 8px 16px; cursor: pointer; background: #455a64; color: #fff; border: none; border-radius: 4px; font-weight: bold; transition: all 0.2s; }
+        .btn.active-view { background: #3498db !important; box-shadow: 0 0 8px #3498db; }
+        .btn-tour.active-view { background: #9b59b6 !important; box-shadow: 0 0 8px #9b59b6; }
         .btn-add { background: #27ae60; }
-        .btn-tour { background: #8e44ad; }
-        .btn-danger { background: #e74c3c; }
+        .btn-help { background: #2980b9; }
+        .btn-conf { background: #f39c12; margin-left: auto; }
         #modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 2000; }
-        .modal { background: white; border-radius: 8px; width: 420px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); overflow: hidden; }
+        .modal { background: white; border-radius: 8px; width: 550px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
         .tab-header { display: flex; background: #ecf0f1; border-bottom: 1px solid #ccc; }
-        .tab-btn { flex: 1; padding: 12px; border: none; cursor: pointer; background: none; font-weight: bold; color: #7f8c8d; }
+        .tab-btn { flex: 1; padding: 14px; border: none; cursor: pointer; background: none; font-weight: bold; color: #7f8c8d; }
         .tab-btn.active { background: white; color: #2c3e50; border-bottom: 2px solid #3498db; }
-        .tab-content { padding: 20px; display: none; flex-direction: column; gap: 10px; }
-        .tab-content.active { display: flex; }
-        .footer { padding: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; }
-        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 10px; }
+        .modal-body.active { display: flex; }
+        .config-row { display: flex; gap: 10px; align-items: center; margin-bottom: 5px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
+        input[type="color"] { width: 60px; height: 35px; cursor: pointer; }
+        .footer { padding: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; background: #fafafa; }
+        .help-section { font-size: 14px; line-height: 1.5; color: #333; }
+        .help-section b { color: #2980b9; }
     </style>
 </head>
 <body>
@@ -29,15 +35,17 @@
 <div id="modal-overlay"><div class="modal" id="modal-box"></div></div>
 
 <div class="controls">
-    <button class="btn" onclick="switchView('MONTH')">Jahr</button>
-    <button class="btn" onclick="switchView('DAY')">Monat</button>
-    <button class="btn btn-tour" onclick="switchView('TOUR')">Touren-Ansicht</button>
-    <div style="display:flex; align-items: center; gap: 10px; margin: 0 15px;">
+    <button class="btn" onclick="switchView('MONTH')" id="lbl-year"></button>
+    <button class="btn" onclick="switchView('DAY')" id="lbl-month"></button>
+    <button class="btn btn-tour" onclick="switchView('TOUR')" id="lbl-tour"></button>
+    <div style="display:flex; align-items: center; gap: 10px; margin: 0 10px;">
         <button class="btn" onclick="navTime(-1)">&#10094;</button>
-        <span id="period-display" style="min-width:150px; text-align:center; font-weight:bold;"></span>
+        <span id="period-display" style="min-width:140px; text-align:center; font-weight:bold;"></span>
         <button class="btn" onclick="navTime(1)">&#10095;</button>
     </div>
-    <button class="btn btn-add" onclick="addResourceTop()">+ Ressource</button>
+    <button class="btn btn-add" onclick="addResourceTop()" id="lbl-add"></button>
+    <button class="btn btn-help" onclick="openHelp()" title="Hilfe">?</button>
+    <button class="btn btn-conf" onclick="openGlobalConfig()" id="lbl-conf"></button>
 </div>
 
 <div id="view-container">
@@ -47,71 +55,75 @@
 </div>
 
 <script>
-/**
- * 1. DATENVERWALTUNG & LOCALSTORAGE
- */
-const COLORS = { projekt: "#3498db", wartung: "#95a5a6", urlaub: "#2ecc71", service: "#9b59b6" };
-const config = { headerW: 240, rowH: 45, topM: 60, monthNames: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'], dayNamesShort: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'] };
+/** 1. GLOBALE DATEN & SPRACHE **/
+let lang = localStorage.getItem('gantt_lang') || 'de';
+let tempLang = lang;
 
-let techs = JSON.parse(localStorage.getItem('gantt_techs')) || [{ id: 1, name: "TEAM NORD", parentId: null }];
+const i18n = {
+    de: { year: "Jahr", month: "Monat", tour: "Tour", res: "RESSOURCEN", add: "+ Ressource", save: "Speichern", delete: "Löschen", done: "Fertig", config: "⚙️ Konfig", t_label: "Kennungstypen", t_res: "Ressourcentypen", t_sys: "System", name: "Bezeichnung", start: "Beginn", end: "Ende",
+          help_title: "Bedienung & Hilfe", h_mouse: "<b>Linksklick</b>: Einsatz-Details öffnen", h_shift: "<b>Shift + Ziehen</b>: Neuen Einsatz erstellen", h_strg: "<b>Strg + Ziehen</b>: Einsatz kopieren", h_resize: "<b>Balkenrand ziehen</b>: Zeitdauer anpassen (nicht in Tour-Ansicht möglich)", h_team: "<b>Team-Funktion</b>: Im Ressourcen-Modal können Ressourcen einander untergeordnet werden.", h_config: "<b>Konfiguration</b>: Hier lassen sich Farben und Typen frei definieren.",
+          months: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
+          days: ['So','Mo','Di','Mi','Do','Fr','Sa'] },
+    en: { year: "Year", month: "Month", tour: "Tour", res: "RESOURCES", add: "+ Resource", save: "Save", delete: "Delete", done: "Done", config: "⚙️ Config", t_label: "Label Types", t_res: "Resource Types", t_sys: "System", name: "Label", start: "Start", end: "End",
+          help_title: "Help & Controls", h_mouse: "<b>Left Click</b>: Open task details", h_shift: "<b>Shift + Drag</b>: Create new task", h_strg: "<b>Ctrl + Drag</b>: Copy task", h_resize: "<b>Drag edges</b>: Resize duration (disabled in Tour view)", h_team: "<b>Teams</b>: Link resources in the resource modal to group them.", h_config: "<b>Config</b>: Customize colors and types for tasks and resources.",
+          months: ['January','February','March','April','May','June','July','August','September','October','November','December'],
+          days: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] }
+};
+
+let configKeys = JSON.parse(localStorage.getItem('gantt_config_keys')) || { projekt: { label: "Projekt", color: "#3498db" }, wartung: { label: "Wartung", color: "#95a5a6" } };
+let resTypes = JSON.parse(localStorage.getItem('gantt_res_types')) || { worker: { label: "Mitarbeiter", color: "#ffffff" }, vehicle: { label: "Fahrzeug", color: "#e1f5fe" } };
+let techs = JSON.parse(localStorage.getItem('gantt_techs')) || [{ id: 1, name: "TEAM 1", type: "worker", parentId: null }];
 let tasks = (JSON.parse(localStorage.getItem('gantt_tasks')) || []).map(t => ({ ...t, start: new Date(t.start), end: new Date(t.end) }));
 
 function saveData() {
+    lang = tempLang;
+    localStorage.setItem('gantt_config_keys', JSON.stringify(configKeys));
+    localStorage.setItem('gantt_res_types', JSON.stringify(resTypes));
     localStorage.setItem('gantt_techs', JSON.stringify(techs));
     localStorage.setItem('gantt_tasks', JSON.stringify(tasks));
+    localStorage.setItem('gantt_lang', lang);
 }
 
-let viewMode = 'MONTH', currentYear = 2024, currentMonth = 4, tourDate = new Date(2024, 4, 10);
-let scrollTop = 0, activeTask = null, editingObj = null, isNew = false, isDragging = false, isResizingEnd = false, isResizingStart = false, mouseDownTime = 0;
+/** 2. ENGINES & RENDERING **/
+const UI = { headerW: 240, rowH: 45, topM: 60 };
+let viewMode = 'MONTH', currentYear = new Date().getFullYear(), currentMonth = new Date().getMonth(), tourDate = new Date();
+tourDate.setHours(0,0,0,0);
+let scrollTop = 0, activeTask = null, isNew = false, isDragging = false, isResizingEnd = false, isResizingStart = false, mouseDownTime = 0;
 
-const cStd = document.getElementById('canvasStandard');
-const cTour = document.getElementById('canvasTour');
-const spacer = document.getElementById('scroll-spacer');
+const cStd = document.getElementById('canvasStandard'), cTour = document.getElementById('canvasTour'), spacer = document.getElementById('scroll-spacer');
 
-/**
- * 2. ENGINES
- */
 const StandardEngine = {
     dateToX: (date) => {
         const units = viewMode === 'MONTH' ? 12 : new Date(currentYear, currentMonth + 1, 0).getDate();
-        const unitW = (cStd.width - config.headerW) / units;
         const dStart = viewMode === 'MONTH' ? new Date(currentYear, 0, 1) : new Date(currentYear, currentMonth, 1);
         const div = viewMode === 'MONTH' ? 30.44 : 1;
-        return config.headerW + ((date - dStart) / 86400000 / div) * unitW;
+        return UI.headerW + ((date - dStart) / 86400000 / div) * ((cStd.width - UI.headerW) / units);
     },
     xToDate: (x) => {
         const units = viewMode === 'MONTH' ? 12 : 31;
-        const mult = viewMode === 'MONTH' ? 30.44 : 1;
         const dStart = viewMode === 'MONTH' ? new Date(currentYear, 0, 1) : new Date(currentYear, currentMonth, 1);
-        const unitW = (cStd.width - config.headerW) / units;
-        return new Date(dStart.getTime() + (x - config.headerW) / unitW * mult * 86400000);
+        const unitW = (cStd.width - UI.headerW) / units;
+        return new Date(dStart.getTime() + (x - UI.headerW) / unitW * (viewMode === 'MONTH' ? 30.44 : 1) * 86400000);
     }
 };
 
 const TourEngine = {
     dateToX: (date, isEnd = false) => {
-        const unitW = (cTour.width - config.headerW) / 3;
-        let d = new Date(date); d.setHours(0,0,0,0);
-        if(isEnd) d.setDate(d.getDate() + 1);
-        return config.headerW + ((d - tourDate.getTime()) / 86400000) * unitW;
+        const unitW = (cTour.width - UI.headerW) / 3;
+        let d = new Date(date); 
+        const diff = (d - tourDate.getTime()) / 86400000;
+        return UI.headerW + diff * unitW;
     },
     xToDate: (x) => {
-        const unitW = (cTour.width - config.headerW) / 3;
-        const days = Math.floor((x - config.headerW) / unitW);
-        let d = new Date(tourDate); d.setDate(d.getDate() + days);
-        d.setHours(8, 0, 0, 0);
-        return d;
+        const days = (x - UI.headerW) / ((cTour.width - UI.headerW) / 3);
+        return new Date(tourDate.getTime() + days * 86400000);
     }
 };
 
-/**
- * 3. CORE LOGIK (ID-BASIERT)
- */
 function calculateStacking() {
     const isTour = viewMode === 'TOUR';
-    techs.forEach(res => { res.slots = 1; });
+    techs.forEach(res => res.slots = 1);
     tasks.forEach(t => t.slot = 0);
-
     techs.forEach((res) => {
         let resTasks = tasks.filter(t => t.resId === res.id).sort((a,b) => a.start - b.start);
         let slots = [];
@@ -119,11 +131,7 @@ function calculateStacking() {
             let placed = false;
             let startComp = isTour ? new Date(t.start).setHours(0,0,0,0) : t.start.getTime();
             for(let i=0; i<slots.length; i++) {
-                if (slots[i] <= startComp) {
-                    t.slot = i;
-                    slots[i] = isTour ? new Date(t.end).setHours(23,59,59) : t.end.getTime();
-                    placed = true; break;
-                }
+                if (slots[i] <= startComp) { t.slot = i; slots[i] = isTour ? new Date(t.end).setHours(23,59,59) : t.end.getTime(); placed = true; break; }
             }
             if(!placed) { t.slot = slots.length; slots.push(isTour ? new Date(t.end).setHours(23,59,59) : t.end.getTime()); }
         });
@@ -131,29 +139,27 @@ function calculateStacking() {
     });
 }
 
-function getY(idx) { let y = 0; for(let i=0; i<idx; i++) y += (techs[i].slots || 1) * config.rowH; return y; }
+function getY(idx) { let y = 0; for(let i=0; i<idx; i++) y += (techs[i].slots || 1) * UI.rowH; return y; }
 
-/**
- * 4. RENDERING
- */
 function draw() {
     calculateStacking();
-    const activeCanvas = viewMode === 'TOUR' ? cTour : cStd;
+    const isTour = viewMode === 'TOUR';
+    const activeCanvas = isTour ? cTour : cStd;
     const ctx = activeCanvas.getContext('2d');
-    const engine = viewMode === 'TOUR' ? TourEngine : StandardEngine;
-    const units = viewMode === 'TOUR' ? 3 : (viewMode === 'MONTH' ? 12 : new Date(currentYear, currentMonth + 1, 0).getDate());
-    const unitW = (activeCanvas.width - config.headerW) / units;
+    const engine = isTour ? TourEngine : StandardEngine;
+    const units = isTour ? 3 : (viewMode === 'MONTH' ? 12 : new Date(currentYear, currentMonth + 1, 0).getDate());
+    const unitW = (activeCanvas.width - UI.headerW) / units;
     const totalH = getY(techs.length);
-    spacer.style.height = (totalH + config.topM) + "px";
+    spacer.style.height = (totalH + UI.topM) + "px";
 
     ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
-    ctx.save(); ctx.translate(0, config.topM - scrollTop);
+    ctx.save(); ctx.translate(0, UI.topM - scrollTop);
     
     // Grid & Weekends
     for(let i=0; i<=units; i++) {
-        let x = config.headerW + i * unitW;
-        let d = viewMode === 'TOUR' ? new Date(tourDate.getTime() + i*86400000) : new Date(currentYear, currentMonth, i+1);
-        if((viewMode === 'DAY' || viewMode === 'TOUR') && (d.getDay() === 0 || d.getDay() === 6)) {
+        let x = UI.headerW + i * unitW;
+        let d = isTour ? new Date(tourDate.getTime() + i*86400000) : new Date(currentYear, currentMonth, i+1);
+        if((viewMode === 'DAY' || isTour) && (d.getDay() === 0 || d.getDay() === 6)) {
             ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(x, 0, unitW, totalH);
         }
         ctx.strokeStyle = "#eee"; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, totalH); ctx.stroke();
@@ -161,86 +167,82 @@ function draw() {
 
     // Resources
     techs.forEach((res, i) => {
-        let y = getY(i), h = res.slots * config.rowH;
-        ctx.fillStyle = i%2===0 ? "#fff" : "#fcfcfc"; ctx.fillRect(0, y, activeCanvas.width, h);
-        ctx.strokeStyle = "#eee"; ctx.strokeRect(0, y, config.headerW, h);
-        if (res.parentId !== null) {
+        let y = getY(i), h = res.slots * UI.rowH;
+        ctx.fillStyle = resTypes[res.type]?.color || "#ffffff"; ctx.fillRect(UI.headerW, y, activeCanvas.width - UI.headerW, h);
+        ctx.fillStyle = "#fafafa"; ctx.fillRect(0, y, UI.headerW, h);
+        ctx.strokeStyle = "#ddd"; ctx.strokeRect(0, y, UI.headerW, h);
+        if (res.parentId) {
             ctx.strokeStyle = "#3498db"; ctx.lineWidth = 2; ctx.beginPath();
-            let parentIdx = techs.findIndex(t => t.id === res.parentId);
-            if(parentIdx !== -1) {
-                ctx.moveTo(20, getY(parentIdx)+22); ctx.lineTo(20, y+22); ctx.lineTo(35, y+22); ctx.stroke();
-            }
-            ctx.lineWidth = 1;
+            let pIdx = techs.findIndex(t => t.id === res.parentId);
+            if(pIdx!==-1) { ctx.moveTo(20, getY(pIdx)+22); ctx.lineTo(20, y+22); ctx.lineTo(35, y+22); ctx.stroke(); }
         }
         ctx.fillStyle = "#333"; ctx.font = "bold 12px sans-serif"; ctx.fillText(res.name, res.parentId?45:15, y+28);
     });
 
     // Tasks
     tasks.forEach(t => {
-        let resIdx = techs.findIndex(r => r.id === t.resId);
-        if(resIdx === -1) return;
+        let rIdx = techs.findIndex(r => r.id === t.resId); if(rIdx===-1) return;
         let x1 = engine.dateToX(t.start), x2 = engine.dateToX(t.end, true);
-        let y = getY(resIdx) + (t.slot * config.rowH) + 10;
-        if(x2 < config.headerW || x1 > activeCanvas.width) return;
-        ctx.fillStyle = (t === activeTask) ? "#e67e22" : (COLORS[t.type] || "#3498db");
-        const drawX = Math.max(config.headerW, x1), drawW = Math.max(5, x2 - drawX);
-        ctx.fillRect(drawX, y, drawW, config.rowH - 20);
-        if(drawW > 20) {
-            ctx.fillStyle = "white"; ctx.font = "bold 10px sans-serif";
-            let timeLabel = t.start.getHours()+":"+t.start.getMinutes().toString().padStart(2,'0');
-            ctx.fillText((viewMode === 'TOUR' ? timeLabel + " " : "") + t.label, drawX+5, y+18);
+        let y = getY(rIdx) + (t.slot * UI.rowH) + 10;
+        ctx.fillStyle = (t === activeTask) ? "#e67e22" : (configKeys[t.type]?.color || "#3498db");
+        const drawX = Math.max(UI.headerW, x1), drawW = Math.max(5, x2 - drawX);
+        if(x1 < activeCanvas.width && x2 > UI.headerW) {
+            ctx.fillRect(drawX, y, drawW, UI.rowH - 20);
+            if(drawW > 25) { 
+                ctx.fillStyle="white"; ctx.font="bold 10px sans-serif"; 
+                let label = isTour ? t.start.getHours() + ":" + t.start.getMinutes().toString().padStart(2,'0') + " | " + t.label : t.label;
+                ctx.fillText(label, drawX+5, y+18); 
+            }
         }
     });
     ctx.restore();
 
-    // FIXED HEADER
-    ctx.fillStyle = "#2c3e50"; ctx.fillRect(0, 0, activeCanvas.width, config.topM);
-    ctx.fillStyle = "white"; ctx.font = "bold 12px sans-serif"; ctx.fillText("RESSOURCEN", 15, 35);
+    // Header
+    ctx.fillStyle = "#2c3e50"; ctx.fillRect(0, 0, activeCanvas.width, UI.topM);
+    ctx.fillStyle = "white"; ctx.font = "bold 12px sans-serif"; ctx.fillText(i18n[lang].res, 15, 35);
     for(let i=0; i<units; i++) {
-        let x = config.headerW + i * unitW;
-        let d = viewMode === 'TOUR' ? new Date(tourDate.getTime() + i*86400000) : new Date(currentYear, currentMonth, i+1);
+        let x = UI.headerW + i * unitW;
+        let d = isTour ? new Date(tourDate.getTime() + i*86400000) : new Date(currentYear, currentMonth, i+1);
         ctx.fillStyle = "#ecf0f1";
-        if (viewMode === 'MONTH') {
-            ctx.font = "bold 11px sans-serif"; ctx.fillText(config.monthNames[i], x + 10, 35);
-        } else {
-            ctx.font = "9px sans-serif"; ctx.fillText(config.dayNamesShort[d.getDay()], x+8, 22);
-            ctx.font = "bold 11px sans-serif"; ctx.fillText((viewMode==='TOUR' ? d.getDate()+"."+(d.getMonth()+1)+"." : d.getDate()+"."), x+8, 42);
+        if (viewMode === 'MONTH') { ctx.font = "bold 11px sans-serif"; ctx.fillText(i18n[lang].months[i], x + 10, 35); }
+        else { 
+            ctx.font = "9px sans-serif"; ctx.fillText(i18n[lang].days[d.getDay()], x+8, 22);
+            ctx.font = "bold 11px sans-serif"; ctx.fillText(d.getDate() + (isTour ? "." + (d.getMonth()+1) + "." : "."), x+8, 42);
         }
-        ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.strokeRect(x, 0, unitW, config.topM);
     }
 }
 
-/**
- * 5. INTERAKTION (ID-BASIERT)
- */
+/** 3. INTERACTION **/
 function handleMouseDown(e) {
     const rect = e.target.getBoundingClientRect(), mx = e.clientX - rect.left, my = e.clientY - rect.top + scrollTop;
     const engine = viewMode === 'TOUR' ? TourEngine : StandardEngine;
-    let cY = my - config.topM;
-    mouseDownTime = Date.now(); isDragging = isResizingStart = isResizingEnd = isNew = false;
+    let cY = my - UI.topM; mouseDownTime = Date.now();
+    isDragging = isNew = isResizingStart = isResizingEnd = false;
 
     let resIdx = techs.findIndex((r, i) => cY >= getY(i) && cY < getY(i+1 || 9999));
-    let res = techs[resIdx];
+    if (mx < UI.headerW && my > UI.topM && techs[resIdx]) { openResModal(resIdx); return; }
 
-    if (mx < config.headerW && my > config.topM && res) { openResModal(resIdx); return; }
-    if (e.shiftKey && res && mx > config.headerW) {
-        activeTask = { id: Date.now(), start: engine.xToDate(mx), end: new Date(engine.xToDate(mx).getTime() + 7200000), resId: res.id, label: "Neu", type: "projekt" };
-        tasks.push(activeTask); isNew = isResizingEnd = true; draw(); return;
+    if (e.shiftKey && techs[resIdx] && mx > UI.headerW) {
+        activeTask = { id: Date.now(), start: engine.xToDate(mx), end: new Date(engine.xToDate(mx).getTime() + 7200000), resId: techs[resIdx].id, label: "Neu", type: Object.keys(configKeys)[0] };
+        tasks.push(activeTask); isResizingEnd = isNew = true; draw(); return;
     }
 
     activeTask = tasks.find(t => {
-        let rIdx = techs.findIndex(r => r.id === t.resId);
-        if(rIdx === -1) return false;
-        let y = getY(rIdx) + (t.slot * config.rowH), x1 = engine.dateToX(t.start), x2 = engine.dateToX(t.end, true);
-        if (mx >= x1 && mx <= x2 && cY >= y && cY <= y + config.rowH) {
+        let rIdx = techs.findIndex(r => r.id === t.resId); if(rIdx===-1) return false;
+        let x1 = engine.dateToX(t.start), x2 = engine.dateToX(t.end, true), y = getY(rIdx) + (t.slot * UI.rowH);
+        if (mx >= x1 && mx <= x2 && cY >= y && cY <= y + UI.rowH) {
             let pct = (mx - x1) / (x2 - x1);
-            if (pct < 0.15) isResizingStart = true; else if (pct > 0.85) isResizingEnd = true; else isDragging = true;
+            if (viewMode !== 'TOUR' && pct < 0.15) isResizingStart = true; 
+            else if (viewMode !== 'TOUR' && pct > 0.85) isResizingEnd = true; 
+            else isDragging = true;
             return true;
         }
     });
-
     if (activeTask) {
-        if(e.ctrlKey) { let c = {...activeTask, id: Date.now(), start: new Date(activeTask.start), end: new Date(activeTask.end)}; tasks.push(c); activeTask = c; }
+        if(e.ctrlKey && isDragging) {
+            let c = {...activeTask, id: Date.now(), start: new Date(activeTask.start), end: new Date(activeTask.end)};
+            tasks.push(c); activeTask = c;
+        }
         activeTask.dragOffset = mx - engine.dateToX(activeTask.start);
     }
 }
@@ -255,83 +257,90 @@ function handleMouseMove(e) {
         let dur = activeTask.end - activeTask.start;
         activeTask.start = engine.xToDate(mx - activeTask.dragOffset);
         activeTask.end = new Date(activeTask.start.getTime() + dur);
-        let resIdx = techs.findIndex((r, i) => (my - config.topM) >= getY(i) && (my - config.topM) < getY(i+1 || 9999));
-        if (techs[resIdx]) activeTask.resId = techs[resIdx].id;
+        let rIdx = techs.findIndex((r, i) => (my - UI.topM) >= getY(i) && (my - UI.topM) < getY(i+1 || 9999));
+        if (techs[rIdx]) activeTask.resId = techs[rIdx].id;
     }
     draw();
 }
 
-/**
- * 6. MODALS & UI
- */
-function openResModal(idx) {
-    editingObj = { ...techs[idx], idx };
-    const resTasks = tasks.filter(t => t.resId === techs[idx].id);
+/** 4. MODALS **/
+function openGlobalConfig(tab = 'task') {
+    let keysH = Object.entries(configKeys).map(([k, v]) => `<div class="config-row"><input type="text" value="${v.label}" onchange="configKeys['${k}'].label=this.value"><input type="color" value="${v.color}" onchange="configKeys['${k}'].color=this.value"><button class="btn btn-danger" onclick="delete configKeys['${k}']; openGlobalConfig('task');">x</button></div>`).join('');
+    let typesH = Object.entries(resTypes).map(([k, v]) => `<div class="config-row"><input type="text" value="${v.label}" onchange="resTypes['${k}'].label=this.value"><input type="color" value="${v.color}" onchange="resTypes['${k}'].color=this.value"><button class="btn btn-danger" onclick="delete resTypes['${k}']; openGlobalConfig('res');">x</button></div>`).join('');
+    
     document.getElementById('modal-box').innerHTML = `
-        <div class="tab-header"><button class="tab-btn active" onclick="showTab('base')">Daten</button><button class="tab-btn" onclick="showTab('team')">Team</button></div>
-        <div id="tab-base" class="tab-content active"><label>Name</label><input type="text" id="r-name" value="${techs[idx].name}"></div>
-        <div id="tab-team" class="tab-content"><label>Übergeordnetes Team</label><select id="r-parent"><option value="">Kein Team</option>${techs.filter(r => r.id !== techs[idx].id).map(r => `<option value="${r.id}" ${techs[idx].parentId == r.id ? 'selected' : ''}>${r.name}</option>`).join('')}</select></div>
-        <div class="footer"><button class="btn btn-danger" onclick="confirmDeleteRes(${idx}, ${resTasks.length})">Löschen</button><button class="btn btn-add" onclick="saveRes()">Speichern</button></div>`;
+        <div class="tab-header">
+            <button class="tab-btn ${tab==='task'?'active':''}" onclick="openGlobalConfig('task')">${i18n[lang].t_label}</button>
+            <button class="tab-btn ${tab==='res'?'active':''}" onclick="openGlobalConfig('res')">${i18n[lang].t_res}</button>
+            <button class="tab-btn ${tab==='sys'?'active':''}" onclick="openGlobalConfig('sys')">${i18n[lang].t_sys}</button>
+        </div>
+        <div class="modal-body ${tab==='task'?'active':''}"><h4>${i18n[lang].t_label}</h4>${keysH}<button class="btn btn-add" onclick="configKeys['id_'+Date.now()]={label:'Neu',color:'#3498db'}; openGlobalConfig('task');">+ Add</button></div>
+        <div class="modal-body ${tab==='res'?'active':''}"><h4>${i18n[lang].t_res}</h4>${typesH}<button class="btn btn-add" onclick="resTypes['id_'+Date.now()]={label:'Neu',color:'#ffffff'}; openGlobalConfig('res');">+ Add</button></div>
+        <div class="modal-body ${tab==='sys'?'active':''}"><h4>Language</h4><select onchange="tempLang=this.value;"><option value="de" ${lang==='de'?'selected':''}>Deutsch</option><option value="en" ${lang==='en'?'selected':''}>English</option></select></div>
+        <div class="footer"><button class="btn" onclick="saveData(); closeModal(); location.reload();">${i18n[lang].done}</button></div>`;
     document.getElementById('modal-overlay').style.display = 'flex';
 }
 
-function confirmDeleteRes(idx, count) {
-    if (confirm(count > 0 ? `Achtung: Diese Ressource hat noch ${count} Einsätze. Alles löschen?` : `Ressource löschen?`)) {
-        tasks = tasks.filter(t => t.resId !== techs[idx].id);
-        techs.splice(idx, 1); saveData(); closeModal(); draw();
-    }
+function openHelp() {
+    document.getElementById('modal-box').innerHTML = `<div class="modal-body active help-section"><h4>${i18n[lang].help_title}</h4>
+        <p>${i18n[lang].h_mouse}</p><p>${i18n[lang].h_shift}</p><p>${i18n[lang].h_strg}</p><p>${i18n[lang].h_resize}</p><hr>
+        <p>${i18n[lang].h_team}</p><p>${i18n[lang].h_config}</p>
+        </div><div class="footer"><button class="btn" onclick="closeModal()">${i18n[lang].done}</button></div>`;
+    document.getElementById('modal-overlay').style.display = 'flex';
 }
 
-function saveRes() {
-    const res = techs[editingObj.idx];
-    res.name = document.getElementById('r-name').value;
-    res.parentId = document.getElementById('r-parent').value ? parseInt(document.getElementById('r-parent').value) : null;
-    
-    // Baum-Sortierung
-    let sorted = []; let parents = techs.filter(t => t.parentId === null);
-    parents.forEach(p => { sorted.push(p); techs.filter(c => c.parentId === p.id).forEach(c => sorted.push(c)); });
-    techs = sorted; 
-    saveData(); closeModal(); draw();
+function openResModal(idx) {
+    editingObj = { ...techs[idx], idx };
+    document.getElementById('modal-box').innerHTML = `
+        <div class="modal-body active"><h4>Ressource</h4>
+        <label>${i18n[lang].name}</label><input type="text" id="r-name" value="${techs[idx].name}">
+        <label>Typ</label><select id="r-type">${Object.entries(resTypes).map(([k,v])=>`<option value="${k}" ${techs[idx].type===k?'selected':''}>${v.label}</option>`).join('')}</select>
+        <label>Team</label><select id="r-parent"><option value="">-</option>${techs.filter(r=>r.id!==techs[idx].id).map(r=>`<option value="${r.id}" ${techs[idx].parentId==r.id?'selected':''}>${r.name}</option>`).join('')}</select>
+        </div><div class="footer"><button class="btn btn-danger" onclick="tasks=tasks.filter(t=>t.resId!==techs[${idx}].id); techs.splice(${idx},1); saveData(); closeModal(); draw();">${i18n[lang].delete}</button><button class="btn btn-add" onclick="saveRes()">${i18n[lang].save}</button></div>`;
+    document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 function openTaskModal(t) {
-    editingObj = t; const toIso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-    document.getElementById('modal-box').innerHTML = `
-        <div class="tab-content active"><h3>Einsatz</h3><label>Name</label><input type="text" id="m-label" value="${t.label}">
-        <label>Typ</label><select id="m-type">${Object.keys(COLORS).map(k=>`<option value="${k}" ${t.type===k?'selected':''}>${k}</option>`).join('')}</select>
-        <label>Start</label><input type="datetime-local" id="m-start" value="${toIso(t.start)}"><label>Ende</label><input type="datetime-local" id="m-end" value="${toIso(t.end)}"></div>
-        <div class="footer"><button class="btn btn-danger" onclick="deleteTask()">Löschen</button><button class="btn" onclick="saveTask()">Speichern</button></div>`;
+    editingObj=t; const toIso=(d)=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>Task</h4>
+        <label>${i18n[lang].name}</label><input type="text" id="m-label" value="${t.label}">
+        <label>Typ</label><select id="m-type">${Object.entries(configKeys).map(([k,v])=>`<option value="${k}" ${t.type===k?'selected':''}>${v.label}</option>`).join('')}</select>
+        <label>${i18n[lang].start}</label><input type="datetime-local" id="m-start" value="${toIso(t.start)}">
+        <label>${i18n[lang].end}</label><input type="datetime-local" id="m-end" value="${toIso(t.end)}">
+        </div><div class="footer"><button class="btn btn-danger" onclick="tasks=tasks.filter(x=>x!==editingObj);saveData();closeModal();draw();">${i18n[lang].delete}</button><button class="btn" onclick="saveTask()">${i18n[lang].save}</button></div>`;
     document.getElementById('modal-overlay').style.display = 'flex';
 }
 
-function saveTask() { editingObj.label = document.getElementById('m-label').value; editingObj.type = document.getElementById('m-type').value; editingObj.start = new Date(document.getElementById('m-start').value); editingObj.end = new Date(document.getElementById('m-end').value); saveData(); closeModal(); draw(); }
-function deleteTask() { tasks = tasks.filter(t => t !== editingObj); saveData(); closeModal(); draw(); }
-function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
-function showTab(t) { document.querySelectorAll('.tab-content, .tab-btn').forEach(el => el.classList.remove('active')); document.getElementById('tab-'+t).classList.add('active'); event.target.classList.add('active'); }
-
+/** 5. APP CONTROL **/
+function saveRes() { let r=techs[editingObj.idx]; r.name=document.getElementById('r-name').value; r.type=document.getElementById('r-type').value; r.parentId=document.getElementById('r-parent').value?parseInt(document.getElementById('r-parent').value):null; 
+    let sorted=[]; let parents=techs.filter(t=>t.parentId===null); parents.forEach(p=>{sorted.push(p);techs.filter(c=>c.parentId===p.id).forEach(c=>sorted.push(c));});
+    techs=sorted; saveData(); closeModal(); draw(); }
+function saveTask() { editingObj.label=document.getElementById('m-label').value; editingObj.type=document.getElementById('m-type').value; editingObj.start=new Date(document.getElementById('m-start').value); editingObj.end=new Date(document.getElementById('m-end').value); saveData(); closeModal(); draw(); }
 function switchView(m) { viewMode = m; cStd.classList.toggle('active', m !== 'TOUR'); cTour.classList.toggle('active', m === 'TOUR'); updateNav(); draw(); }
 function navTime(d) {
-    if(viewMode === 'TOUR') tourDate.setDate(tourDate.getDate() + d);
+    if(viewMode === 'TOUR') tourDate.setDate(tourDate.getDate()+d);
     else if(viewMode === 'MONTH') currentYear += d;
-    else { currentMonth += d; if(currentMonth>11){currentMonth=0; currentYear++;} if(currentMonth<0){currentMonth=11; currentYear--;} }
+    else { currentMonth += d; if(currentMonth > 11) { currentMonth = 0; currentYear++; } else if(currentMonth < 0) { currentMonth = 11; currentYear--; } }
     updateNav(); draw();
 }
-function updateNav() { document.getElementById('period-display').innerText = viewMode==='TOUR' ? tourDate.toLocaleDateString() : (viewMode==='MONTH' ? currentYear : config.monthNames[currentMonth]+" "+currentYear); }
-function addResourceTop() { techs.unshift({ id: Date.now(), name: "Neu", parentId: null }); saveData(); draw(); }
-
-function init() {
-    [cStd, cTour].forEach(c => {
-        c.width = window.innerWidth; c.height = window.innerHeight;
-        c.addEventListener('mousedown', handleMouseDown);
-        c.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', () => { if (activeTask && (isNew || Date.now() - mouseDownTime < 200)) openTaskModal(activeTask); activeTask = null; saveData(); draw(); });
-    });
-    switchView('MONTH');
+function updateNav() {
+    document.getElementById('period-display').innerText = viewMode==='TOUR' ? tourDate.toLocaleDateString(lang==='de'?'de-DE':'en-US') : (viewMode==='MONTH' ? currentYear : i18n[lang].months[currentMonth]+" "+currentYear);
+    document.getElementById('lbl-year').innerText = i18n[lang].year; document.getElementById('lbl-month').innerText = i18n[lang].month;
+    document.getElementById('lbl-tour').innerText = i18n[lang].tour; document.getElementById('lbl-add').innerText = i18n[lang].add;
+    document.getElementById('lbl-conf').innerText = i18n[lang].config;
+    document.getElementById('lbl-year').classList.toggle('active-view', viewMode === 'MONTH');
+    document.getElementById('lbl-month').classList.toggle('active-view', viewMode === 'DAY');
+    document.getElementById('lbl-tour').classList.toggle('active-view', viewMode === 'TOUR');
 }
+function addResourceTop() { techs.unshift({ id: Date.now(), name: "Neu", type: "worker", parentId: null }); saveData(); draw(); }
+function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 
-document.getElementById('view-container').addEventListener('scroll', (e) => { scrollTop = e.target.scrollTop; cStd.style.top = cTour.style.top = scrollTop + "px"; draw(); });
-window.addEventListener('resize', init);
-init();
+/** 6. INIT **/
+window.onresize = () => { cStd.width = cTour.width = window.innerWidth; cStd.height = cTour.height = window.innerHeight; draw(); };
+document.getElementById('view-container').onscroll = (e) => { scrollTop = e.target.scrollTop; cStd.style.top = cTour.style.top = scrollTop + "px"; draw(); };
+[cStd, cTour].forEach(c => { c.addEventListener('mousedown', handleMouseDown); c.addEventListener('mousemove', handleMouseMove); });
+window.addEventListener('mouseup', () => { if (activeTask && (Date.now() - mouseDownTime < 200)) openTaskModal(activeTask); activeTask = null; draw(); });
+window.onload = () => { window.onresize(); switchView('MONTH'); };
 </script>
 </body>
 </html>
