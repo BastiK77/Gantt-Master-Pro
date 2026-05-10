@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Gantt Master Pro: Dual Engine Final</title>
+    <title>Gantt Master Pro - Ultimate Visibility Fix</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; overflow: hidden; display: flex; flex-direction: column; }
         .controls { padding: 12px 20px; background: #2c3e50; display: flex; justify-content: center; gap: 10px; color: white; align-items: center; z-index: 1000; position: relative; }
@@ -11,7 +11,7 @@
         canvas.active { display: block; }
         .btn { padding: 8px 16px; cursor: pointer; background: #455a64; color: #fff; border: none; border-radius: 4px; font-weight: bold; transition: all 0.2s; }
         .btn.active-view { background: #3498db !important; box-shadow: 0 0 8px #3498db; }
-        .btn-tour.active-view { background: #9b59b6 !important; box-shadow: 0 0 8px #9b59b6; }
+        .btn-tour.active-view { background: #9b59b6 !important; }
         .btn-add { background: #27ae60; }
         .btn-help { background: #2980b9; }
         .btn-conf { background: #f39c12; margin-left: auto; }
@@ -22,9 +22,9 @@
         .tab-btn.active { background: white; color: #2c3e50; border-bottom: 2px solid #3498db; }
         .modal-body { padding: 20px; overflow-y: auto; flex: 1; display: none; flex-direction: column; gap: 10px; }
         .modal-body.active { display: flex; }
-        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; width: 100%; }
-        input[type="color"] { width: 60px; height: 35px; cursor: pointer; }
         .footer { padding: 15px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; background: #fafafa; }
+        input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="color"] { width: 60px; height: 35px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -52,13 +52,13 @@
 </div>
 
 <script>
-/** 1. DATA, I18N & PERSISTENCE **/
+/** 1. DATA **/
 let lang = localStorage.getItem('gantt_lang') || 'de';
 let tempLang = lang;
 
 const i18n = {
     de: { year: "Jahr", month: "Monat", tour: "Tour", res: "RESSOURCEN", add: "+ Ressource", save: "Speichern", delete: "Löschen", done: "Fertig", config: "⚙️ Konfig", t_label: "Kennungstypen", t_res: "Ressourcentypen", t_sys: "System", name: "Bezeichnung", start: "Beginn", end: "Ende",
-          help_title: "Hilfe", h_mouse: "<b>Linksklick</b>: Details öffnen", h_shift: "<b>Shift + Ziehen</b>: Neu", h_strg: "<b>Strg + Ziehen</b>: Kopie", h_resize: "<b>Rand ziehen</b>: Resize (nicht in Tour)", h_team: "<b>Teams</b>: Ressourcen einander unterordnen.",
+          help_title: "Bedienung & Hilfe", h_mouse: "<b>Linksklick</b>: Details öffnen", h_shift: "<b>Shift + Ziehen</b>: Neu", h_strg: "<b>Strg + Ziehen</b>: Kopie", h_resize: "<b>Rand ziehen</b>: Resize (nicht in Tour)", h_team: "<b>Teams</b>: Ressourcen im Modal unterordnen.",
           months: ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'],
           days: ['So','Mo','Di','Mi','Do','Fr','Sa'] },
     en: { year: "Year", month: "Month", tour: "Tour", res: "RESOURCES", add: "+ Resource", save: "Save", delete: "Delete", done: "Done", config: "⚙️ Config", t_label: "Label Types", t_res: "Resource Types", t_sys: "System", name: "Label", start: "Start", end: "End",
@@ -69,7 +69,7 @@ const i18n = {
 
 let configKeys = JSON.parse(localStorage.getItem('gantt_config_keys')) || { projekt: { label: "Projekt", color: "#3498db" }, wartung: { label: "Wartung", color: "#95a5a6" } };
 let resTypes = JSON.parse(localStorage.getItem('gantt_res_types')) || { worker: { label: "Mitarbeiter", color: "#ffffff" }, vehicle: { label: "Fahrzeug", color: "#e1f5fe" } };
-let techs = JSON.parse(localStorage.getItem('gantt_techs')) || [{ id: 1, name: "TEAM 1", type: "worker", parentId: null }];
+let techs = JSON.parse(localStorage.getItem('gantt_techs')) || [{ id: 1, name: "START TEAM", type: "worker", parentId: null }];
 let tasks = (JSON.parse(localStorage.getItem('gantt_tasks')) || []).map(t => ({ ...t, start: new Date(t.start), end: new Date(t.end) }));
 
 function saveData() {
@@ -81,7 +81,6 @@ function saveData() {
     localStorage.setItem('gantt_lang', lang);
 }
 
-/** 2. DUAL ENGINES **/
 const UI = { headerW: 240, rowH: 45, topM: 60 };
 let viewMode = 'MONTH', currentYear = new Date().getFullYear(), currentMonth = new Date().getMonth(), tourDate = new Date();
 tourDate.setHours(0,0,0,0);
@@ -89,6 +88,7 @@ let scrollTop = 0, activeTask = null, isNew = false, isDragging = false, isResiz
 
 const cStd = document.getElementById('canvasStandard'), cTour = document.getElementById('canvasTour'), spacer = document.getElementById('scroll-spacer');
 
+/** 2. ENGINES **/
 const StandardEngine = {
     dateToX: (date) => {
         const units = viewMode === 'MONTH' ? 12 : new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -99,7 +99,8 @@ const StandardEngine = {
     xToDate: (x) => {
         const units = viewMode === 'MONTH' ? 12 : 31;
         const dStart = viewMode === 'MONTH' ? new Date(currentYear, 0, 1) : new Date(currentYear, currentMonth, 1);
-        return new Date(dStart.getTime() + (x - UI.headerW) / ((cStd.width - UI.headerW) / units) * (viewMode === 'MONTH' ? 30.44 : 1) * 86400000);
+        const unitW = (cStd.width - UI.headerW) / units;
+        return new Date(dStart.getTime() + (x - UI.headerW) / unitW * (viewMode === 'MONTH' ? 30.44 : 1) * 86400000);
     }
 };
 
@@ -107,18 +108,16 @@ const TourEngine = {
     dateToX: (date, isEnd = false) => {
         const unitW = (cTour.width - UI.headerW) / 3;
         let d = new Date(date); 
-        if (isEnd) { d.setHours(23,59,59); } else { d.setHours(0,0,0,0); }
         const diff = (d - tourDate.getTime()) / 86400000;
         return UI.headerW + diff * unitW;
     },
     xToDate: (x) => {
-        const days = Math.floor((x - UI.headerW) / ((cTour.width - UI.headerW) / 3));
-        let d = new Date(tourDate); d.setDate(d.getDate() + days); d.setHours(8,0,0,0);
-        return d;
+        const unitW = (cTour.width - UI.headerW) / 3;
+        const days = (x - UI.headerW) / unitW;
+        return new Date(tourDate.getTime() + days * 86400000);
     }
 };
 
-/** 3. CORE LOGIC & DRAW **/
 function calculateStacking() {
     const isTour = viewMode === 'TOUR';
     techs.forEach(res => res.slots = 1);
@@ -140,6 +139,7 @@ function calculateStacking() {
 
 function getY(idx) { let y = 0; for(let i=0; i<idx; i++) y += (techs[i].slots || 1) * UI.rowH; return y; }
 
+/** 3. DRAWING **/
 function draw() {
     calculateStacking();
     const isTour = viewMode === 'TOUR';
@@ -154,28 +154,45 @@ function draw() {
     ctx.clearRect(0, 0, activeCanvas.width, activeCanvas.height);
     ctx.save(); ctx.translate(0, UI.topM - scrollTop);
     
+    // A. ZUERST ZEILEN-HINTERGRÜNDE
+    techs.forEach((res, i) => {
+        let y = getY(i), h = res.slots * UI.rowH;
+        ctx.fillStyle = resTypes[res.type]?.color || "#ffffff";
+        ctx.fillRect(UI.headerW, y, activeCanvas.width - UI.headerW, h); // Gantt Bereich
+        ctx.fillStyle = "#fafafa"; ctx.fillRect(0, y, UI.headerW, h); // Sidebar Bereich
+        ctx.strokeStyle = "#ddd"; ctx.strokeRect(0, y, UI.headerW, h); // Sidebar Border
+    });
+
+    // B. DANN GITTER & WOCHENENDEN (Darübergelegt)
     for(let i=0; i<=units; i++) {
         let x = UI.headerW + i * unitW;
         let d = isTour ? new Date(tourDate.getTime() + i*86400000) : new Date(currentYear, currentMonth, i+1);
-        if((viewMode === 'DAY' || isTour) && (d.getDay() === 0 || d.getDay() === 6)) {
-            ctx.fillStyle = "rgba(0,0,0,0.05)"; ctx.fillRect(x, 0, unitW, totalH);
+        
+        // Wochenende Highlight
+        if((viewMode === 'DAY' || isTour) && i < units && (d.getDay() === 0 || d.getDay() === 6)) {
+            ctx.fillStyle = "rgba(0,0,0,0.06)";
+            ctx.fillRect(x, 0, unitW, totalH);
         }
+        // Vertikale Linie
         ctx.strokeStyle = "#eee"; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, totalH); ctx.stroke();
     }
 
+    // C. DANN HORIZONTALE TRENNLINIEN
     techs.forEach((res, i) => {
         let y = getY(i), h = res.slots * UI.rowH;
-        ctx.fillStyle = resTypes[res.type]?.color || "#ffffff"; ctx.fillRect(UI.headerW, y, activeCanvas.width - UI.headerW, h);
-        ctx.fillStyle = "#fafafa"; ctx.fillRect(0, y, UI.headerW, h);
-        ctx.strokeStyle = "#ddd"; ctx.strokeRect(0, y, UI.headerW, h);
+        ctx.strokeStyle = "#eee"; ctx.beginPath(); ctx.moveTo(0, y + h); ctx.lineTo(activeCanvas.width, y + h); ctx.stroke();
+        
+        // Team Baum-Linien
         if (res.parentId) {
             ctx.strokeStyle = "#3498db"; ctx.lineWidth = 2; ctx.beginPath();
             let pIdx = techs.findIndex(t => t.id === res.parentId);
             if(pIdx!==-1) { ctx.moveTo(20, getY(pIdx)+22); ctx.lineTo(20, y+22); ctx.lineTo(35, y+22); ctx.stroke(); }
+            ctx.lineWidth = 1;
         }
         ctx.fillStyle = "#333"; ctx.font = "bold 12px sans-serif"; ctx.fillText(res.name, res.parentId?45:15, y+28);
     });
 
+    // D. DANN TASKS
     tasks.forEach(t => {
         let rIdx = techs.findIndex(r => r.id === t.resId); if(rIdx===-1) return;
         let x1 = engine.dateToX(t.start), x2 = engine.dateToX(t.end, true);
@@ -193,12 +210,16 @@ function draw() {
     });
     ctx.restore();
 
-    ctx.fillStyle = "#2c3e50"; ctx.fillRect(0, 0, activeCanvas.width, UI.topM);
+    // E. FIXED HEADER (Darübergelegt)
+    ctx.fillStyle = "#2c3e50"; ctx.fillRect(0, 0, UI.headerW, UI.topM);
+    ctx.fillStyle = "#f8f9fa"; ctx.fillRect(UI.headerW, 0, activeCanvas.width - UI.headerW, UI.topM);
     ctx.fillStyle = "white"; ctx.font = "bold 12px sans-serif"; ctx.fillText(i18n[lang].res, 15, 35);
+    
     for(let i=0; i<units; i++) {
         let x = UI.headerW + i * unitW;
         let d = isTour ? new Date(tourDate.getTime() + i*86400000) : new Date(currentYear, currentMonth, i+1);
-        ctx.fillStyle = "#ecf0f1";
+        ctx.fillStyle = "#7f8c8d";
+        ctx.strokeStyle = "#ddd"; ctx.strokeRect(x, 0, unitW, UI.topM);
         if (viewMode === 'MONTH') { ctx.font = "bold 11px sans-serif"; ctx.fillText(i18n[lang].months[i], x + 10, 35); }
         else { 
             ctx.font = "9px sans-serif"; ctx.fillText(i18n[lang].days[d.getDay()], x+8, 22);
@@ -224,13 +245,10 @@ function handleMouseDown(e) {
 
     activeTask = tasks.find(t => {
         let rIdx = techs.findIndex(r => r.id === t.resId); if(rIdx===-1) return false;
-        let x1 = engine.dateToX(t.start), x2 = engine.dateToX(t.end, true);
-        let y = getY(rIdx) + (t.slot * UI.rowH);
+        let y = getY(rIdx) + (t.slot * UI.rowH), x1 = engine.dateToX(t.start), x2 = engine.dateToX(t.end, true);
         if (mx >= x1 && mx <= x2 && cY >= y && cY <= y + UI.rowH) {
             let pct = (mx - x1) / (x2 - x1);
-            if (viewMode !== 'TOUR' && pct < 0.15) isResizingStart = true; 
-            else if (viewMode !== 'TOUR' && pct > 0.85) isResizingEnd = true; 
-            else isDragging = true;
+            if (viewMode !== 'TOUR' && pct < 0.15) isResizingStart = true; else if (viewMode !== 'TOUR' && pct > 0.85) isResizingEnd = true; else isDragging = true;
             return true;
         }
     });
@@ -258,56 +276,33 @@ function handleMouseMove(e) {
     draw();
 }
 
-/** 5. MODALS & CONFIG **/
+/** 5. UI & CONFIG **/
 function openGlobalConfig(tab = 'task') {
     let keysH = Object.entries(configKeys).map(([k, v]) => `<div class="config-row"><input type="text" value="${v.label}" onchange="configKeys['${k}'].label=this.value"><input type="color" value="${v.color}" onchange="configKeys['${k}'].color=this.value"><button class="btn btn-danger" onclick="delete configKeys['${k}']; openGlobalConfig('task');">x</button></div>`).join('');
     let typesH = Object.entries(resTypes).map(([k, v]) => `<div class="config-row"><input type="text" value="${v.label}" onchange="resTypes['${k}'].label=this.value"><input type="color" value="${v.color}" onchange="resTypes['${k}'].color=this.value"><button class="btn btn-danger" onclick="delete resTypes['${k}']; openGlobalConfig('res');">x</button></div>`).join('');
-    
-    document.getElementById('modal-box').innerHTML = `
-        <div class="tab-header">
-            <button class="tab-btn ${tab==='task'?'active':''}" onclick="openGlobalConfig('task')">${i18n[lang].t_label}</button>
-            <button class="tab-btn ${tab==='res'?'active':''}" onclick="openGlobalConfig('res')">${i18n[lang].t_res}</button>
-            <button class="tab-btn ${tab==='sys'?'active':''}" onclick="openGlobalConfig('sys')">${i18n[lang].t_sys}</button>
-        </div>
-        <div class="modal-body ${tab==='task'?'active':''}"><h4>${i18n[lang].t_label}</h4>${keysH}<button class="btn btn-add" onclick="configKeys['id_'+Date.now()]={label:'Neu',color:'#3498db'}; openGlobalConfig('task');">+ Add</button></div>
-        <div class="modal-body ${tab==='res'?'active':''}"><h4>${i18n[lang].t_res}</h4>${typesH}<button class="btn btn-add" onclick="resTypes['id_'+Date.now()]={label:'Neu',color:'#ffffff'}; openGlobalConfig('res');">+ Add</button></div>
-        <div class="modal-body ${tab==='sys'?'active':''}"><h4>Language</h4><select onchange="tempLang=this.value;"><option value="de" ${lang==='de'?'selected':''}>Deutsch</option><option value="en" ${lang==='en'?'selected':''}>English</option></select></div>
-        <div class="footer"><button class="btn" onclick="saveData(); closeModal(); location.reload();">${i18n[lang].done}</button></div>`;
+    document.getElementById('modal-box').innerHTML = `<div class="tab-header"><button class="tab-btn ${tab==='task'?'active':''}" onclick="openGlobalConfig('task')">${i18n[lang].t_label}</button><button class="tab-btn ${tab==='res'?'active':''}" onclick="openGlobalConfig('res')">${i18n[lang].t_res}</button><button class="tab-btn ${tab==='sys'?'active':''}" onclick="openGlobalConfig('sys')">${i18n[lang].t_sys}</button></div><div class="modal-body ${tab==='task'?'active':''}"><h4>${i18n[lang].t_label}</h4>${keysH}<button class="btn btn-add" onclick="configKeys['id_'+Date.now()]={label:'Neu',color:'#3498db'}; openGlobalConfig('task');">+ Add</button></div><div class="modal-body ${tab==='res'?'active':''}"><h4>${i18n[lang].t_res}</h4>${typesH}<button class="btn btn-add" onclick="resTypes['id_'+Date.now()]={label:'Neu',color:'#ffffff'}; openGlobalConfig('res');">+ Add</button></div><div class="modal-body ${tab==='sys'?'active':''}"><h4>Language</h4><select onchange="tempLang=this.value;"><option value="de" ${lang==='de'?'selected':''}>Deutsch</option><option value="en" ${lang==='en'?'selected':''}>English</option></select></div><div class="footer"><button class="btn" onclick="saveData(); closeModal(); location.reload();">${i18n[lang].done}</button></div>`;
     document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 function openHelp() {
-    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>${i18n[lang].help_title}</h4>
-        <p>${i18n[lang].h_mouse}</p><p>${i18n[lang].h_shift}</p><p>${i18n[lang].h_strg}</p><p>${i18n[lang].h_resize}</p><hr>
-        <p>${i18n[lang].h_team}</p></div><div class="footer"><button class="btn" onclick="closeModal()">${i18n[lang].done}</button></div>`;
+    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>${i18n[lang].help_title}</h4><p>${i18n[lang].h_mouse}</p><p>${i18n[lang].h_shift}</p><p>${i18n[lang].h_strg}</p><p>${i18n[lang].h_resize}</p><hr><p>${i18n[lang].h_team}</p></div><div class="footer"><button class="btn" onclick="closeModal()">${i18n[lang].done}</button></div>`;
     document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 function openResModal(idx) {
     editingObj = { ...techs[idx], idx };
-    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>Ressource</h4>
-        <label>${i18n[lang].name}</label><input type="text" id="r-name" value="${techs[idx].name}">
-        <label>Type</label><select id="r-type">${Object.entries(resTypes).map(([k,v])=>`<option value="${k}" ${techs[idx].type===k?'selected':''}>${v.label}</option>`).join('')}</select>
-        <label>Team</label><select id="r-parent"><option value="">-</option>${techs.filter(r=>r.id!==techs[idx].id).map(r=>`<option value="${r.id}" ${techs[idx].parentId==r.id?'selected':''}>${r.name}</option>`).join('')}</select>
-        </div><div class="footer"><button class="btn btn-danger" onclick="tasks=tasks.filter(t=>t.resId!==techs[${idx}].id); techs.splice(${idx},1); saveData(); closeModal(); draw();">${i18n[lang].delete}</button><button class="btn btn-add" onclick="saveRes()">${i18n[lang].save}</button></div>`;
+    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>Ressource</h4><label>${i18n[lang].name}</label><input type="text" id="r-name" value="${techs[idx].name}"><label>Type</label><select id="r-type">${Object.entries(resTypes).map(([k,v])=>`<option value="${k}" ${techs[idx].type===k?'selected':''}>${v.label}</option>`).join('')}</select><label>Team</label><select id="r-parent"><option value="">-</option>${techs.filter(r=>r.id!==techs[idx].id).map(r=>`<option value="${r.id}" ${techs[idx].parentId==r.id?'selected':''}>${r.name}</option>`).join('')}</select></div><div class="footer"><button class="btn btn-danger" onclick="tasks=tasks.filter(t=>t.resId!==techs[${idx}].id); techs.splice(${idx},1); saveData(); closeModal(); draw();">${i18n[lang].delete}</button><button class="btn btn-add" onclick="saveRes()">${i18n[lang].save}</button></div>`;
     document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 function openTaskModal(t) {
     editingObj=t; const toIso=(d)=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>Task</h4>
-        <label>${i18n[lang].name}</label><input type="text" id="m-label" value="${t.label}">
-        <label>Type</label><select id="m-type">${Object.entries(configKeys).map(([k,v])=>`<option value="${k}" ${t.type===k?'selected':''}>${v.label}</option>`).join('')}</select>
-        <label>${i18n[lang].start}</label><input type="datetime-local" id="m-start" value="${toIso(t.start)}">
-        <label>${i18n[lang].end}</label><input type="datetime-local" id="m-end" value="${toIso(t.end)}">
-        </div><div class="footer"><button class="btn btn-danger" onclick="tasks=tasks.filter(x=>x!==editingObj);saveData();closeModal();draw();">${i18n[lang].delete}</button><button class="btn" onclick="saveTask()">${i18n[lang].save}</button></div>`;
+    document.getElementById('modal-box').innerHTML = `<div class="modal-body active"><h4>Task</h4><label>${i18n[lang].name}</label><input type="text" id="m-label" value="${t.label}"><label>Typ</label><select id="m-type">${Object.entries(configKeys).map(([k,v])=>`<option value="${k}" ${t.type===k?'selected':''}>${v.label}</option>`).join('')}</select><label>${i18n[lang].start}</label><input type="datetime-local" id="m-start" value="${toIso(t.start)}"><label>${i18n[lang].end}</label><input type="datetime-local" id="m-end" value="${toIso(t.end)}"></div><div class="footer"><button class="btn btn-danger" onclick="tasks=tasks.filter(x=>x!==editingObj);saveData();closeModal();draw();">${i18n[lang].delete}</button><button class="btn" onclick="saveTask()">${i18n[lang].save}</button></div>`;
     document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 /** 6. ACTIONS & INIT **/
-function saveRes() { let r=techs[editingObj.idx]; r.name=document.getElementById('r-name').value; r.type=document.getElementById('r-type').value; r.parentId=document.getElementById('r-parent').value?parseInt(document.getElementById('r-parent').value):null; 
-    let sorted=[]; let parents=techs.filter(t=>t.parentId===null); parents.forEach(p=>{sorted.push(p);techs.filter(c=>c.parentId===p.id).forEach(c=>sorted.push(c));});
-    techs=sorted; saveData(); closeModal(); draw(); }
+function saveRes() { let r=techs[editingObj.idx]; r.name=document.getElementById('r-name').value; r.type=document.getElementById('r-type').value; r.parentId=document.getElementById('r-parent').value?parseInt(document.getElementById('r-parent').value):null; let sorted=[]; let p=techs.filter(t=>t.parentId===null); p.forEach(x=>{sorted.push(x);techs.filter(c=>c.parentId===x.id).forEach(c=>sorted.push(c));}); techs=sorted; saveData(); closeModal(); draw(); }
 function saveTask() { editingObj.label=document.getElementById('m-label').value; editingObj.type=document.getElementById('m-type').value; editingObj.start=new Date(document.getElementById('m-start').value); editingObj.end=new Date(document.getElementById('m-end').value); saveData(); closeModal(); draw(); }
 function switchView(m) { viewMode = m; cStd.classList.toggle('active', m !== 'TOUR'); cTour.classList.toggle('active', m === 'TOUR'); updateNav(); draw(); }
 function navTime(d) {
@@ -325,7 +320,7 @@ function updateNav() {
     document.getElementById('lbl-month').classList.toggle('active-view', viewMode === 'DAY');
     document.getElementById('lbl-tour').classList.toggle('active-view', viewMode === 'TOUR');
 }
-function addResourceTop() { techs.unshift({ id: Date.now(), name: "Neu", type: "worker", parentId: null }); saveData(); draw(); }
+function addResourceTop() { techs.unshift({ id: Date.now(), name: "Neu", type: Object.keys(resTypes)[0], parentId: null }); saveData(); draw(); }
 function closeModal() { document.getElementById('modal-overlay').style.display = 'none'; }
 
 window.onresize = () => { cStd.width = cTour.width = window.innerWidth; cStd.height = cTour.height = window.innerHeight; draw(); };
