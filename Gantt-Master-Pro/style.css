@@ -1,0 +1,376 @@
+/* =========================================================================
+   1. GLOBAL SYSTEM RESETS & VARIABLE DEFINITIONS
+   ========================================================================= */
+:root {
+    --primary: #3498db;
+    --primary-dark: #2980b9;
+    --success: #27ae60;
+    --danger: #e74c3c;
+    --warning: #f39c12;
+    --dark-bg: #2c3e50;
+    --light-bg: #f0f2f5;
+    --border-color: #bdc3c7;
+    --card-header-bg: #f9f9f9;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    background: var(--light-bg); 
+    overflow: hidden; 
+    display: flex; 
+    flex-direction: column; 
+    height: 100vh;
+    color: #333;
+    font-size: 14px;
+}
+
+/* App Layout Container für Splitter */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* =========================================================================
+   2. TOP NAVIGATION (KONTROLL-BAR)
+   ========================================================================= */
+.controls { 
+    padding: 10px 20px; 
+    background: var(--dark-bg); 
+    display: flex; 
+    justify-content: center; 
+    gap: 8px; 
+    color: white; 
+    align-items: center; 
+    z-index: 1000; 
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    height: 60px;
+    flex-shrink: 0;
+}
+
+.nav-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 15px;
+    background: rgba(255,255,255,0.1);
+    padding: 5px 15px;
+    border-radius: 20px;
+}
+
+#period-display {
+    min-width: 170px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+}
+
+/* =========================================================================
+   3. GANTT BEREICH & WORKLIST SPLITTER SYSTEM
+   ========================================================================= */
+#view-container { 
+    position: relative; 
+    flex: 1; 
+    overflow-y: auto; 
+    background: #fff; 
+}
+
+canvas { 
+    display: none; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    image-rendering: pixelated;
+}
+
+canvas.active { 
+    display: block; 
+}
+
+#scroll-spacer { 
+    width: 1px; 
+}
+
+/* Der ziehbare Splitter-Balken */
+.splitter-h {
+    height: 6px;
+    background: #bdc3c7;
+    cursor: row-resize;
+    z-index: 1200;
+    transition: background 0.15s;
+    flex-shrink: 0;
+    position: relative;
+}
+.splitter-h:hover, .splitter-h.dragging {
+    background: var(--primary);
+}
+
+/* Integrierte Untere Worklist-Zone (Inboard-Panel) */
+#bottom-worklist-panel {
+    height: 250px; /* Standard-Starthöhe */
+    min-height: 100px;
+    background: #ffffff;
+    border-top: 1px solid #d2d5d7;
+    display: flex;
+    flex-direction: column;
+    z-index: 1100;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.panel-header {
+    background: #f1f3f5;
+    padding: 8px 20px;
+    font-weight: bold;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #555;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 35px;
+}
+
+.panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 20px;
+}
+
+/* =========================================================================
+   4. BUTTONS & INTERAKTIONS-ELEMENTE (FARB-CODES)
+   ========================================================================= */
+.btn { 
+    padding: 8px 16px; 
+    cursor: pointer; 
+    background: #455a64; 
+    color: #fff; 
+    border: none; 
+    border-radius: 4px; 
+    font-weight: 600; 
+    font-size: 13px; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px;
+    height: 38px;
+    transition: all 0.2s;
+}
+
+.btn:hover { background: #546e7a; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+
+.btn-order { background: var(--warning); }
+.btn-address { background: var(--primary); }
+.btn-machine { background: #16a085; }
+.btn-add { background: var(--success); }
+.btn-danger { background: var(--danger); }
+.btn-conf { background: #7f8c8d; margin-left: auto; }
+
+.btn.active-view { 
+    background: var(--primary) !important; 
+    box-shadow: 0 0 10px rgba(52, 152, 219, 0.5); 
+}
+
+/* Vorgangs-Statusfarben für die Auftragsplanung (Rot, Gelb, Grün) */
+.btn-status-draft { background: var(--danger) !important; color: white; }
+.btn-status-worklist { background: var(--warning) !important; color: #2c3e50 !important; }
+.btn-status-scheduled { background: var(--success) !important; color: white; }
+
+/* Memo/Langtext Signal-Button (Rot/Grün Logik) */
+.btn-memo {
+    width: 34px; 
+    height: 34px; 
+    border: none; 
+    border-radius: 4px; 
+    color: white; 
+    cursor: pointer;
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    font-size: 16px;
+    transition: background 0.2s;
+}
+.btn-memo-empty { background: var(--danger) !important; }
+.btn-memo-filled { background: var(--success) !important; }
+
+/* =========================================================================
+   5. MULTISELECT FILTER DROPDOWN
+   ========================================================================= */
+.multiselect-container {
+    background: white; border: 1px solid #bdc3c7; padding: 6px 15px; border-radius: 4px;
+    cursor: pointer; position: relative; min-width: 180px; font-size: 13px; color: #2c3e50;
+    height: 38px; display: flex; align-items: center; justify-content: space-between;
+}
+.dropdown-content {
+    display: none; position: absolute; top: 100%; left: 0; width: 280px;
+    background: white; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 2000;
+    max-height: 400px; overflow-y: auto; padding: 10px; border-radius: 4px; border: 1px solid #ddd;
+}
+.dropdown-content.show { display: block; }
+.filter-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; cursor: pointer; border-radius: 3px; }
+.filter-item:hover { background: #f0f7ff; }
+.filter-item input { width: auto; height: auto; }
+
+/* =========================================================================
+   6. MODAL SYSTEM & LAYER CODES (STRICT OVERLAY STACKING)
+   ========================================================================= */
+#modal-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    background: rgba(0, 0, 0, 0.5); 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 2000; /* Hauptfenster-Ebene */
+}
+
+#lookup-overlay { 
+    position: fixed; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
+    background: rgba(0, 0, 0, 0.4); 
+    display: none; 
+    justify-content: center; 
+    align-items: center; 
+    z-index: 4000; /* Absolut im Vordergrund über dem Hauptfenster */
+}
+
+.modal { 
+    background: white; border-radius: 6px; width: 850px; height: 620px; 
+    display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.4); overflow: hidden;
+}
+.modal.modal-xl { 
+    width: 98%; max-width: 1550px; height: 94vh; 
+}
+
+.tab-header { display: flex; background: #ecf0f1; border-bottom: 1px solid #ddd; flex-shrink: 0; }
+.tab-btn { flex: 1; padding: 15px; border: none; cursor: pointer; font-weight: bold; color: #7f8c8d; font-size: 15px; }
+.tab-btn.active { background: white; color: var(--dark-bg); border-bottom: 4px solid var(--primary); }
+
+.modal-body { padding: 20px; flex: 1; overflow-y: auto; display: none; flex-direction: column; gap: 15px; }
+.modal-body.active { display: flex; }
+.footer { padding: 15px 25px; display: flex; justify-content: flex-end; gap: 10px; background: #f8f9fa; border-top: 1px solid #eee; flex-shrink: 0; }
+
+/* =========================================================================
+   7. BUSINESS CENTRAL (BC) FASTTABS & CARDS
+   ========================================================================= */
+.bc-card { 
+    background: #fff; border: 1px solid #d2d5d7; border-radius: 4px; margin-bottom: 15px; 
+}
+.bc-card-header { 
+    background: var(--card-header-bg); padding: 8px 15px; border-bottom: 1px solid #d2d5d7; 
+    font-weight: bold; font-size: 11px; text-transform: uppercase; color: #666; 
+}
+.bc-card-body { padding: 15px; }
+
+/* =========================================================================
+   8. COMPACT ENTERPRISE TABLES & GRID FIX SYSTEM
+   ========================================================================= */
+.addr-table-container { 
+    flex: 1; overflow: auto; border: 1px solid #dee2e6; border-radius: 4px; background: #fff; 
+}
+.bc-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.bc-table th { background: #f1f3f5; position: sticky; top: 0; padding: 10px; text-align: left; border-bottom: 2px solid #dee2e6; z-index: 10; color: #555; font-size: 11px; font-weight: bold; }
+.bc-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-table tr:hover { background-color: #f1f8ff; }
+
+/* Strukturübersicht In-Table Inputs */
+.bc-table td input[type="text"], .bc-table td input[type="number"] {
+    height: 28px; border: 1px solid transparent; background: transparent; padding: 2px 5px; width: 100%;
+}
+.bc-table td input:focus { background: #fff; border-color: var(--primary); }
+
+/* DER NEUE UNTERVORGANG-GRID-FIX (9-Spalten-Flucht für duale Schaltflächen) */
+.subtask-card { 
+    display: grid; 
+    grid-template-columns: 35px 30px 1fr 75px 75px 120px 140px 85px 30px; 
+    gap: 6px; 
+    align-items: center; 
+    background: #fff; 
+    border: 1px solid #cfd8dc; 
+    padding: 6px 10px; 
+    border-radius: 6px; 
+    margin-bottom: 5px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.subtask-card input { border: 1px solid transparent; background: transparent; height: 30px; font-size: 13px; width: 100%; }
+.subtask-card input:focus { background: #fff; border-color: var(--primary); }
+.st-hours-group { display: flex; align-items: center; gap: 3px; background: #f1f8e9; padding: 0 6px; border-radius: 4px; height: 30px; border: 1px solid #c8e6c9; }
+
+/* =========================================================================
+   9. CONFIGURATION & CONFIG-TABLE SPECIFICS
+   ========================================================================= */
+.config-table { 
+    width: 100%; border-collapse: collapse; margin-top: 5px; 
+}
+.config-table td { 
+    padding: 10px; border-bottom: 1px solid #eee; background: #fff; vertical-align: middle; 
+}
+.config-table input[type="text"] { 
+    border: 1px solid transparent; background: transparent; font-weight: 600; height: 32px;
+}
+.config-table input[type="text"]:focus { 
+    border: 1px solid var(--primary); background: #fff; 
+}
+.config-table input[type="color"] { 
+    width: 45px; height: 32px; border: none; cursor: pointer; background: none; padding: 0;
+}
+
+/* =========================================================================
+   10. ERGONOMISCHE FORMULAR-ELEMENTE
+   ========================================================================= */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+label { font-size: 11px; font-weight: bold; color: #555; margin-bottom: 4px; display: block; text-transform: uppercase; }
+input, select, textarea { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 14px; height: 38px; background: #fff; }
+input:focus, select:focus, textarea:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 5px rgba(52,152,219,0.2); }
+input[readonly] { background-color: #f5f5f5; cursor: default; }
+
+/* ERP Lookups (Inputs mit Suchlupe) */
+.input-with-lookup { display: flex; }
+.input-with-lookup input { border-radius: 4px 0 0 4px; }
+.btn-lookup { background: #fff; border: 1px solid var(--border-color); border-left: none; border-radius: 0 4px 4px 0; padding: 0 12px; cursor: pointer; color: var(--primary); font-size: 16px; height: 38px; }
+
+/* Badges */
+.badge { padding: 3px 10px; border-radius: 12px; font-size: 10px; font-weight: bold; color: white; display: inline-block; }
+.bg-warn { background-color: var(--warning); }
+.bg-ok { background-color: var(--success); }
+
+/* Stammdaten-Stapel (Adressen/Maschinen) */
+.address-item { padding: 12px 15px; border: 1px solid #eee; margin-bottom: 6px; cursor: pointer; border-radius: 4px; background: #fff; transition: all 0.15s; }
+.address-item:hover { border-color: var(--primary); background: #f0f7ff; }
+
+/* Ergänzung ganz unten in der style.css für ergonomische Icon-Buttons */
+.controls .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    padding: 0 12px;
+    min-width: 42px; /* Garantiert quadratische Form bei reinem Icon-Modus */
+}
+
+/* Responsives Verhalten: Bei schmalen Fenstern verstecken wir den Text für maximale Kompakt-Optik */
+@media (max-width: 1200px) {
+    .controls .btn span {
+        display: none;
+    }
+    .controls .btn {
+        font-size: 16px; /* Macht das Icon etwas größer, wenn der Text wegfällt */
+        padding: 0;
+    }
+}

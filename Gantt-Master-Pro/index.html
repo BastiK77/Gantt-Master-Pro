@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gantt Master Pro - Enterprise Scheduling Hub</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="modal-overlay">
+        <div class="modal" id="modal-box"></div>
+    </div>
+    
+    <div id="lookup-overlay">
+        <div class="modal" id="lookup-box"></div>
+    </div>
+
+    <div class="app-container">
+        
+        <div class="controls">
+            <!-- In deiner index.html in der .controls Zeile austauschen -->
+<button type="button" class="btn" onclick="switchView('MONTH')" id="lbl-year" title="Jahres-Grobplanung (Übersicht)">📅 <span>Jahr</span></button>
+<button type="button" class="btn" onclick="switchView('DAY')" id="lbl-month" title="Monats-Disposition (Standard)">🗓️ <span>Monat</span></button>
+            <button class="btn" onclick="switchView('HOUR')" id="lbl-hour">🕒</button> <!-- NEUE FEINPLANUNG -->
+<button type="button" class="btn" onclick="switchView('TOUR')" id="lbl-tour" title="Touren- & Routenplanung">🚚 <span>Tour</span></button>
+
+
+
+
+            
+            <div class="nav-group">
+                <button type="button" class="btn" onclick="navTime(-1)">&#10094;</button>
+                <span id="period-display">Initialisiere...</span>
+                <button type="button" class="btn" onclick="navTime(1)">&#10095;</button>
+            </div>
+
+            <div class="multiselect-container" onclick="toggleFilterDropdown()">
+                <span id="filter-label">Alle Regionen</span>
+                <div id="filter-dropdown" class="dropdown-content"></div>
+            </div>
+
+            <button type="button" class="btn btn-order" onclick="openOrderList()" title="Service-Aufträge">📋</button>
+            <button type="button" class="btn btn-address" onclick="openAddressList()" title="Adressstamm">🏠</button>
+            <button type="button" class="btn btn-machine" onclick="openEquipmentList()" title="Equipment">⚙️</button>
+            <button type="button" class="btn btn-add" onclick="addResourceTop()" title="Neue Ressource">👤+</button>
+            
+            <button type="button" class="btn" onclick="openHelp()" title="F1 für Hilfe">❓</button>
+            <button type="button" class="btn btn-conf" onclick="openGlobalConfig()" style="margin-left:auto;" title="Setup">🛠️</button>
+        </div>
+
+        <div id="view-container">
+            <div id="scroll-spacer"></div>
+            <canvas id="canvasStandard"></canvas>
+            <canvas id="canvasTour"></canvas>
+        </div>
+
+        <div class="splitter-h" id="gantt-splitter"></div>
+
+        <div id="bottom-worklist-panel">
+            <div class="panel-header">
+                <span>📥 Offene Bedarfe (Backlog)</span>
+                <span id="worklist-counter" class="badge bg-warn" style="background:#34495e;">0 Einträge</span>
+            </div>
+            <div class="panel-body" id="worklist-embed-content"></div>
+        </div>
+        
+    </div>
+
+    <!-- SCRIPT INJEKTION (STRIKTE REIHENFOLGE) -->
+    <script src="js/gantt-i18n.js"></script>
+    <script src="js/gantt-data.js"></script>
+    
+    <script src="js/modals/modal-lookup.js"></script>
+    <script src="js/modals/modal-help.js"></script>
+    
+    <script src="js/modals/modal-address.js"></script>
+    <script src="js/modals/modal-equipment.js"></script>
+    <script src="js/modals/modal-resource.js"></script>
+
+    <!-- LADEREIHENFOLGE GEFIXT: Trees vor System laden! -->
+    <script src="js/modals/config/config-labels.js"></script>
+    <script src="js/modals/config/config-trees.js"></script>
+    <script src="js/modals/config/config-system.js"></script>
+    <script src="js/modals/config/config-core.js"></script>
+
+    <script src="js/modals/order/order-tasks.js"></script>
+    <script src="js/modals/order/order-subtasks.js"></script>
+    <script src="js/modals/order/order-helpers.js"></script>
+    <script src="js/modals/order/order-core.js"></script>
+    
+    <script src="js/modals/modal-task.js"></script>
+    <script src="js/modals/modal-worklist.js"></script>
+
+    <script src="js/core/gantt-engines.js"></script>
+    <script src="js/core/gantt-coordinates.js"></script>
+    <script src="js/core/gantt-templates.js"></script>
+    <script src="js/core/gantt-renderer.js"></script>
+    <script src="js/core/gantt-events.js"></script>
+
+</body>
+</html>
